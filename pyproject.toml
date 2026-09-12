@@ -1,7 +1,7 @@
 [project]
-name = "clanker-fishbowl"
+name = "clanker-scope"
 version = "0.1.0"
-description = "Add your description here"
+description = "Measure your clanker"
 readme = "README.md"
 authors = [
     { name = "Stefan Wong", email = "stfnwong@gmail.com" }
