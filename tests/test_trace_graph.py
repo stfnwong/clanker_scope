@@ -1,41 +1,8 @@
 import pytest
-from datetime import datetime, timedelta
 
 from clanker_scope.event import Event, EventType
 from clanker_scope.graph import TraceGraph
 
-
-@pytest.fixture
-def base_time() -> datetime:
-    """ Fixed timestamp for deterministic tests. """
-    return datetime(2026, 9, 16, 12, 0, 0)
-
-
-@pytest.fixture
-def make_event(base_time):
-    """ Event factory with useful defaults. """
-    counter = {"n": 0}
-
-    def _make(
-        event_type: EventType=EventType.ASSISTANT,
-        content: str="",
-        parent_ids: set[str] | None = None,
-        seconds_offset: int = 0,
-        metadata: dict | None = None,
-        event_id: str | None = None,
-    ) -> Event:
-        counter["n"] += 1
-
-        return Event(
-            id=event_id or f"evt_{counter['n']:03d}",
-            type=event_type,
-            timestamp=base_time + timedelta(seconds=seconds_offset),
-            content=content or f"event {counter['n']}",
-            parent_ids=parent_ids or set(),
-            metadata=metadata or {}
-        )
-
-    return _make
 
 
 def test_add_first_root_event(make_event):
@@ -101,3 +68,56 @@ def test_root_moves_from_roots_when_parents_added(make_event):
 
     assert "a" in g._roots
     assert "b" not in g._roots
+
+
+# ======== Test topological sort ======== #
+def test_empty_graph():
+    g = TraceGraph()
+    assert g.topological_sort() == []
+
+
+def test_single_node(make_event):
+    g = TraceGraph()
+    e = make_event(event_id="only")
+    g.add_event(e)
+
+    assert [ev.id for ev in g.topological_sort()] == ["only"]
+
+
+def test_linear_order(linear_graph):
+    result = [ev.id for ev in linear_graph.topological_sort()]
+    assert result == ["a", "b", "c", "d"]
+
+
+def test_diamond_parents_before_child(diamond_graph):
+    result = [ev.id for ev in diamond_graph.topological_sort()]
+
+    assert result.index("a") < result.index("b")
+    assert result.index("a") < result.index("c")
+    assert result.index("b") < result.index("d")
+    assert result.index("c") < result.index("d")
+
+    assert len(result) == 4
+
+
+def test_fan_out(fan_out_graph):
+    result = [ev.id for ev in fan_out_graph.topological_sort()]
+    assert result[0] == "root"
+    assert set(result[1:]) == set([f"tool_{i}" for i in range(5)])
+
+
+def test_disconnected_components(make_event):
+    """ Two separate chains should both appear in topological order. """
+    g = TraceGraph()
+    a1 = make_event(event_id="a1")
+    a2 = make_event(event_id="a2", parent_ids={"a1"})
+    b1 = make_event(event_id="b1")
+    b2 = make_event(event_id="b2", parent_ids={"b1"})
+
+    for ev in (a1, a2, b1, b2):
+        g.add_event(ev)
+    result = [ev.id for ev in g.topological_sort()]
+
+    assert result.index("a1") < result.index("a2")
+    assert result.index("b1") < result.index("b2")
+    assert len(result) == 4
