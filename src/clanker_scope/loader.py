@@ -24,6 +24,8 @@ class LoaderMode(Enum):
 @dataclass
 class LoaderConfig:
     """ How to load a JSON """
+    # Originally this was WARN but I found that unless we pass in topological order 
+    # that the graph ends up incomplete.
     mode: LoaderMode = LoaderMode.STUB
     strict_timestamps: bool = False    # Require monotonically increasing times
     max_lines: int = 0                 # Limit lines (for debugging)
@@ -272,6 +274,7 @@ class JSONLLoader:
 
     def _parse_event(self, data: dict) -> Event:
         """ Convert a JSON dict to an Event, handling type conversions. """
+
         # Handle the timestamp, which could be a string or float
         timestamp = data["timestamp"]
         if isinstance(timestamp, str):
