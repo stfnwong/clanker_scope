@@ -1,4 +1,4 @@
-# An event in the trace 
+# An event in the trace
 import uuid
 from typing import Any
 from datetime import datetime
@@ -21,9 +21,9 @@ class EventType(Enum):
 class Event:
     type: EventType = field(hash=True)
     id: str = field(default_factory=lambda: f"event_{uuid.uuid4().hex[12:]}")
-    timestamp: datetime = field(default_factory=datetime.utcnow)   
+    timestamp: datetime = field(default_factory=datetime.now)
     content: str = ""    # Human-reaable text/tool output goes here
-    parent_ids: set[str] = field(default_factory=set)      # DAG edges
+    parent_ids: set[str | object] = field(default_factory=set)      # DAG edges
     metadata: dict[str, Any] = field(default_factory=dict) # cost, tokens, tool_name, etc
 
     def __post_init__(self) -> None:
