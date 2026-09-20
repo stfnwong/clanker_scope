@@ -318,3 +318,8 @@ class JSONLLoader:
             parent_ids=set(),
             metadata={"stub": True, "original_id": event_id}
         )
+
+
+# ======== Graph Renderer ======= #
+class DOTRenderer:
+    pass

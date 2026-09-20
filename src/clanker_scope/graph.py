@@ -26,6 +26,9 @@ class TraceGraph:
 
     def get_parents(self, event_id: str) -> set[str]:
         return self._parents.get(event_id, set())
+
+    def get_all_events(self) -> list[Event]:
+        return list(self._nodes.values())
     
     def add_event(self, event: Event) -> None:
         if event.id in self._nodes:
