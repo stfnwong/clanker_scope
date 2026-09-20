@@ -10,8 +10,11 @@ class TraceGraph:
     def __init__(self):
         self._nodes: dict[str, Event] = {}
         self._children: dict[str, set[str]] = {}   # parent_id -> set(children)
-        self._parents: dict[str, set[str]] = {}   # chiild_id -> set(parents)
+        self._parents: dict[str, set[str]] = {}   # child_id -> set(parents)
         self._roots: set[str] = set()   # Nodes with no parents
+
+    def __len__(self) -> int:
+        return len(self._nodes)
 
     @property
     def nodes(self) -> dict[str, Event]:
@@ -125,7 +128,7 @@ class TraceGraph:
         """ All events that causally preceed this one. """
 
         result: set[Event] = set()
-        stack = list(self._parents.get(event.id, []))
+        stack = list(self._parents.get(event_id, []))
         visited = set()
 
         while stack:

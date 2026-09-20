@@ -320,6 +320,3 @@ class JSONLLoader:
         )
 
 
-# ======== Graph Renderer ======= #
-class DOTRenderer:
-    pass

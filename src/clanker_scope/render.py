@@ -1,12 +1,20 @@
-# Module to handle Mermaid diagrams 
-
+from abc import ABC, abstractmethod
 from enum import Enum
+from typing import override
 from dataclasses import dataclass
 
 from clanker_scope.event import EventType
 from clanker_scope.graph import TraceGraph
 
 
+class Renderer(ABC):
+    @abstractmethod
+    def render(self, graph: TraceGraph, **kwargs) -> str:
+        ...
+
+
+
+# ======== Mermaid Diagram ======== #
 @dataclass
 class MermaidConfig:
     """ Configuration options for Mermaid diagram output. """
@@ -16,7 +24,7 @@ class MermaidConfig:
     node_style_present: str = "agnostic"   # Or minimal, detailed, etc
 
 
-class MermaidRenderer:
+class MermaidRenderer(Renderer):
     """ Translate a TraceGraph into Mermaid diagram syntax. """
 
     _SHAPE_MAP = {
@@ -162,6 +170,20 @@ class MermaidRenderer:
             "timeline": self.render_timeline(graph),
         }
 
+    @override
+    def render(self, graph: TraceGraph, **kwargs) -> str:
+        t = kwargs.get("type", "flowchart")
+        funcs = {
+            "flowchart": self.render_flowchart,
+            "sequence": self.render_sequence,
+            "timeline": self.render_timeline,
+        }
+
+        try:
+            return funcs[t](graph)
+        except KeyError:
+            raise KeyError(f"Unknown type [{t}], valid types are: {funcs.keys()}")
+
     @staticmethod
     def _sanitize_id(raw_id: str) -> str:
         # Mermaid IDs cannot start with numbers or contain most symbols.
@@ -172,3 +194,18 @@ class MermaidRenderer:
 
         return sanitized
 
+
+# ======== DOT Renderer ======= #
+class DOTRenderer(Renderer):
+    @override
+    def render(self, graph: TraceGraph, **kwargs) -> str:
+        lines = ["digraph TraceGraph {"]
+        for ev in graph.get_all_events():
+            lines.append(f'    {ev.id} [label="{ev.type.value}"];')
+
+        for parent, children in graph.edges.items():
+            for child in children:
+                lines.append(f"     {parent} -> {child};")
+        lines.append("}")
+
+        return "\n".join(lines)
