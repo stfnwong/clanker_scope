@@ -3,15 +3,40 @@
 import json
 from enum import Enum
 from dataclasses import dataclass, field
+from typing import Any, Iterable
 from datetime import datetime
 from pathlib import Path
 
 from clanker_scope.logger import make_logger
 from clanker_scope.graph import TraceGraph
-from clanker_scope.event import EventType, Event
+from clanker_scope.event import EventType, Event, generate_id
 
 
 logger = make_logger(__name__)
+
+
+# ===== JSON key configurations ===== #
+# TODO: maybe I only need type checks but _not_ substitution
+@dataclass
+class FieldMapping:
+    id: str="id"
+    parent_ids: str | None = "parent_ids"
+    timestamp: str="ts"  # This is the deepseek key 
+    type: str="type"
+    content: str="content"
+
+    def get(self, data: dict[str, str], canonical: str) -> Any:
+        key = getattr(self, canonical)
+        if key is None:
+            return None
+
+        return data.get(key)
+
+    def mapped(self, keys: str | Iterable[str]) -> tuple[str, ...]:
+        if isinstance(keys, str):
+            return (getattr(self, keys),)
+
+        return tuple([getattr(self, k) for k in keys])
 
 
 class LoaderMode(Enum):
@@ -32,6 +57,7 @@ class LoaderConfig:
     skip_malformed: bool = True        # Skip over invalid lines
     encoding: str = "utf-8"
     log_missing_parents: bool = True
+    fields: FieldMapping = field(default_factory=FieldMapping)
 
 
 
@@ -54,7 +80,6 @@ class LoaderResult:
         return self.skipped_lines == 0 or self.malformed_lines == 0
 
 
-
 # ======== Loader ======== #
 class JSONLLoader:
     """
@@ -65,7 +90,7 @@ class JSONLLoader:
     def __init__(self, config: LoaderConfig | None = None):
         self.config = config or LoaderConfig()
 
-    def load(self, filepath: Path | str) -> LoaderResult:
+    def load(self, filepath: Path | str, verbose: bool=False) -> LoaderResult:
         path = Path(filepath)
         if not path.exists():
             raise FileNotFoundError(f"Trace file [{filepath}] not found")
@@ -73,7 +98,7 @@ class JSONLLoader:
         with open(filepath, "r", encoding=self.config.encoding) as f:
             lines = f.readlines()
 
-        return self.load_lines(lines, source=str(path))
+        return self.load_lines(lines, source=str(path), verbose=verbose)
 
     def load_lines(self, lines: list[str], source: str="memory", verbose: bool=False) -> LoaderResult:
         """
@@ -251,24 +276,25 @@ class JSONLLoader:
         """ Check that required fields are present and valid. """
         # TODO: should these go into a configuration as well (because they vary between
         # providers)?
-        required = ("id", "type", "timestamp")
+        #required = self.config.fields.mapped(["id", "type", "timestamp"])
+        required = self.config.fields.mapped(["type", "timestamp"])
         for field in required:
             if field not in data:
                 if self.config.skip_malformed:
-                    logger.warning(f"Line {line_num} missing [{field}]")
+                    logger.warning(f"Line {line_num} missing field [{field}]")
                     return False
                 else:
-                    raise ValueError(f"Line {line_num} missing [{field}]")
+                    raise ValueError(f"Line {line_num} missing field [{field}]")
 
         # Validate type enum
         try:
-            EventType(data["type"])
+            EventType(self.config.fields.get(data, "type"))
         except ValueError:
             if self.config.skip_malformed:
-                logger.warning(f"Line {line_num} in {source} has invalid type {data['type']}")
+                logger.warning(f"Line {line_num} in [{source}] has invalid type {data['type']}")
                 return False
             else:
-                raise ValueError(f"Line {line_num} in {source} has invalid type {data['type']}")
+                raise ValueError(f"Line {line_num} in [{source}] has invalid type {data['type']}")
 
         return True
 
@@ -276,7 +302,7 @@ class JSONLLoader:
         """ Convert a JSON dict to an Event, handling type conversions. """
 
         # Handle the timestamp, which could be a string or float
-        timestamp = data["timestamp"]
+        timestamp = self.config.fields.get(data, "timestamp")
         if isinstance(timestamp, str):
             try:
                 ts = datetime.fromisoformat(timestamp)
@@ -289,7 +315,8 @@ class JSONLLoader:
             raise ValueError(f"Unsupported timestamp type: {type(timestamp)} with value {timestamp}")
 
         # Handle parent_ids (which could be strings, lists, or missing)
-        parent_ids_raw = data.get("parent_ids", data.get("parent_id", []))
+        parent_ids_key = self.config.fields.mapped("parent_ids")
+        parent_ids_raw = data.get(parent_ids_key, data.get(parent_ids_key, []))
         if isinstance(parent_ids_raw, str):
             parent_ids = {parent_ids_raw}
         elif isinstance(parent_ids_raw, list):
@@ -300,10 +327,10 @@ class JSONLLoader:
             parent_ids = set()
 
         return Event(
-            id=str(data["id"]),
-            type=EventType(data["type"]),
+            id=self.config.fields.get(data, "id") or generate_id(),
+            type=EventType(self.config.fields.get(data, "type")),
             timestamp=ts,
-            content=data.get("content", ""),
+            content=self.config.fields.get(data, "content") or "",
             parent_ids=parent_ids,
             metadata=data.get("metadata", {})
         )

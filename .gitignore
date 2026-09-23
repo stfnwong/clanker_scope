@@ -11,3 +11,6 @@ wheels/
 
 # Don't save traces to the repo 
 *.jsonl
+
+# Don't save notebooks (only save percent fies)
+*.ipynb

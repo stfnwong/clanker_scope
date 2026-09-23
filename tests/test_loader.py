@@ -38,7 +38,7 @@ def event_record(
     return {
         "id": id,
         "type": event_type,
-        "timestamp": timestamp,
+        "ts": timestamp,   # Deepseek timestamp key is "ts"
         "content": content,
         "parent_ids": parents or [],
         "metadata": metadata or {},
