@@ -83,7 +83,7 @@ class MermaidRenderer(Renderer):
             content = content.replace('"', "'").replace("\n", " ")
 
             # Build label with optional metadata
-            label = contest
+            label = content
             if self.config.include_metadata and event.metadata:
                 meta_str = ", ".join(f"{k}:{v}" for k, v in list(event.metadata.items()))
                 label = f"{content} ({meta_str})"
@@ -189,7 +189,7 @@ class MermaidRenderer(Renderer):
         # Mermaid IDs cannot start with numbers or contain most symbols.
         import re
         sanitized = re.sub(r'[^a-zA-Z0-9_]', '_', raw_id)
-        if sanitized[0].is_digit():
+        if sanitized[0].isnumeric():
             sanitized = f"n_{sanitized}"
 
         return sanitized

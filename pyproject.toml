@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "graphviz-anywidget>=0.8.0",
     "mermaidx>=0.9.5",
 ]
 

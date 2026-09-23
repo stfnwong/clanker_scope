@@ -36,10 +36,28 @@ result.graph.nodes
 # %%
 from clanker_scope.render import DOTRenderer
 
-renderer = DOTRenderer()
-dot_out = renderer.render(result.graph)
+dot_render = DOTRenderer()
+dot_source = dot_render.render(result.graph)
 
 # %%
-dot_out
+from graphviz_anywidget import graphviz_widget
+
+widget = graphviz_widget(dot_source)
+widget
+
+# %% [markdown]
+# ## What about a _Mermaid_ diagram? 
+# The other kind of diagram that we might be generally interested in is a _mermaid diagram_ which shows use the temporal relationships between the stageso.
 
 # %%
+import mermaidx
+from clanker_scope.render import MermaidRenderer
+
+mermaid_render = MermaidRenderer()
+mermaid_src = mermaid_render.render(result.graph)
+
+# %%
+mermaidx.render(mermaid_src)
+
+
+
